@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>かなトレ — Kana Trainer</title>
+<meta name="description" content="Learn hiragana and katakana with spaced repetition, quizzes and a progress heat map.">
+<link rel="stylesheet" href="css/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>あ</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">あ</span>
+    <span class="brand-text">
+      <strong>Kana Trainer</strong>
+      <small>hiragana &amp; katakana for absolute beginners</small>
+    </span>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab is-active" data-view="home">Home</button>
+    <button class="tab" data-view="chart">Chart</button>
+    <button class="tab" data-view="study">Study</button>
+    <button class="tab" data-view="progress">Progress</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ HOME ============ -->
+  <section class="view is-active" id="view-home">
+    <div class="hero">
+      <h1>Learn to read Japanese in about two weeks.</h1>
+      <p>
+        Japanese has two alphabets of the same 46 sounds. They're phonetic, they never
+        change, and once they click you can read a menu. Start with the vowels and
+        take five characters at a time.
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="btn-continue">Start today's review</button>
+        <button class="btn" data-goto="chart">Browse the chart</button>
+      </div>
+      <div class="hero-stats" id="hero-stats"></div>
+    </div>
+
+    <h2 class="section-title">Lessons</h2>
+    <p class="section-note">Five characters a go. A lesson turns green once you've answered every card in it correctly at least three times.</p>
+    <div class="lesson-grid" id="lesson-grid"></div>
+  </section>
+
+  <!-- ============ CHART ============ -->
+  <section class="view" id="view-chart">
+    <div class="toolbar">
+      <div class="seg" id="chart-script">
+        <button class="is-active" data-script="hiragana">Hiragana ひらがな</button>
+        <button data-script="katakana">Katakana カタカナ</button>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="chart-heat" checked>
+        <span>Shade by how well I know it</span>
+      </label>
+    </div>
+    <div id="chart-body"></div>
+    <p class="legend">
+      <span class="swatch s0"></span> new
+      <span class="swatch s1"></span> shaky
+      <span class="swatch s2"></span> getting there
+      <span class="swatch s3"></span> solid
+      <span class="hint">Click any character to hear it and see its details.</span>
+    </p>
+  </section>
+
+  <!-- ============ STUDY ============ -->
+  <section class="view" id="view-study">
+    <div id="study-setup">
+      <h2 class="section-title">Set up a session</h2>
+
+      <div class="field">
+        <span class="field-label">Script</span>
+        <div class="seg" id="opt-script">
+          <button class="is-active" data-v="hiragana">Hiragana</button>
+          <button data-v="katakana">Katakana</button>
+          <button data-v="both">Both</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Question type</span>
+        <div class="seg" id="opt-mode">
+          <button class="is-active" data-v="recognize">Kana → romaji</button>
+          <button data-v="recall">Romaji → kana</button>
+          <button data-v="type">Type the reading</button>
+          <button data-v="mixed">Mix it up</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">What to include</span>
+        <div class="chips" id="opt-lessons"></div>
+        <div class="chip-actions">
+          <button class="link" data-select="all">select all</button>
+          <button class="link" data-select="none">clear</button>
+          <button class="link" data-select="weak">just my weak spots</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Length</span>
+        <div class="seg" id="opt-length">
+          <button data-v="10">10</button>
+          <button class="is-active" data-v="20">20</button>
+          <button data-v="40">40</button>
+          <button data-v="0">everything due</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg" id="btn-start">Start</button>
+      <p class="warn" id="setup-warn" hidden>Pick at least one lesson first.</p>
+    </div>
+
+    <div id="study-quiz" hidden>
+      <div class="quiz-head">
+        <div class="progressbar"><i id="quiz-bar"></i></div>
+        <div class="quiz-meta">
+          <span id="quiz-count">1 / 20</span>
+          <span class="streak" id="quiz-streak"></span>
+          <button class="link" id="btn-quit">end session</button>
+        </div>
+      </div>
+
+      <div class="card" id="quiz-card">
+        <p class="prompt-label" id="prompt-label">What sound is this?</p>
+        <div class="prompt" id="prompt"></div>
+        <button class="speak" id="btn-speak" title="Hear it">🔊</button>
+      </div>
+
+      <div class="choices" id="choices"></div>
+
+      <form class="typebox" id="typebox" hidden autocomplete="off">
+        <input id="type-input" placeholder="type the romaji…" autocapitalize="off"
+               autocorrect="off" spellcheck="false" inputmode="latin">
+        <button class="btn btn-primary" type="submit">Check</button>
+      </form>
+
+      <div class="feedback" id="feedback" hidden></div>
+    </div>
+
+    <div id="study-done" hidden>
+      <h2 class="section-title">Session complete</h2>
+      <div class="scorecard" id="scorecard"></div>
+      <div class="reward" id="reward"></div>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="btn-again">Another round</button>
+        <button class="btn" data-goto="home">Back home</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PROGRESS ============ -->
+  <section class="view" id="view-progress">
+    <h2 class="section-title">Progress</h2>
+    <div class="stat-grid" id="stat-grid"></div>
+    <h3 class="section-title sm">Characters that keep tripping you up</h3>
+    <div class="trouble" id="trouble"></div>
+    <h3 class="section-title sm">Upcoming reviews</h3>
+    <div class="forecast" id="forecast"></div>
+    <div class="danger">
+      <button class="link danger-link" id="btn-reset">Erase all my progress</button>
+    </div>
+  </section>
+</main>
+
+<div class="detail" id="detail" hidden>
+  <div class="detail-inner">
+    <button class="detail-close" id="detail-close">✕</button>
+    <div id="detail-body"></div>
+  </div>
+</div>
+
+<footer class="foot">
+  Progress is saved in this browser only. がんばって！
+</footer>
+
+<script src="js/kana-data.js"></script>
+<script src="js/srs.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
