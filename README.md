@@ -22,19 +22,28 @@ traditional grid, in both scripts. Every square is shaded by how well you
 actually know it, so your weak spots are visible at a glance. Click any
 character for its twin script, a mnemonic, your hit rate, and audio.
 
-**Study** — four question types:
+**Study** — five question types:
 
 | Mode | You see | You answer |
 |---|---|---|
 | Kana → romaji | あ | pick "a" |
 | Romaji → kana | "a" | pick あ |
 | Type the reading | あ | type `a` |
-| Mix it up | any of the above | — |
+| Flashcard | あ | flip it, then say whether you knew it |
+| Mix it up | any of the first three | — |
 
 Wrong answers show a mnemonic and come back before the session ends.
 Multiple-choice distractors are drawn from the same consonant row, because
 mixing up し and す is a mistake worth training and mixing up し and ぽ is not.
 Press `1`–`4` instead of clicking.
+
+Flashcard is the odd one out — instead of being auto-graded, you tap the card
+(or press space) to flip it and reveal both scripts, the romaji, and a
+mnemonic, then judge yourself: "Didn't know" (←) or "Knew it" (→). It's the
+classic Anki-style review, and it feeds the same spaced-repetition scheduler
+as every other mode. It's kept out of "Mix it up" on purpose — self-graded and
+auto-graded rounds in the same session make your accuracy stats mean two
+different things.
 
 **Spaced repetition** — each character is a card in a Leitner box. Get it right
 and it moves up (1 → 2 → 4 → 8 → 16 → 32 → 64 days). Get it wrong and it drops

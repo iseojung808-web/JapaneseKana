@@ -452,6 +452,19 @@
     $('#quiz-count').textContent = `${session.index + 1} / ${session.queue.length}`;
     $('#quiz-streak').textContent = session.streak >= 3 ? `🔥 ${session.streak} in a row` : '';
 
+    // Flashcards are self-graded and have their own layout entirely, so they
+    // get their own branch rather than threading through the choice/type UI.
+    if (mode === 'flashcard') {
+      $('#quiz-card').hidden = true;
+      $('#choices').hidden = true;
+      $('#typebox').hidden = true;
+      $('#flashcard').hidden = false;
+      setupFlashcard(item);
+      return;
+    }
+    $('#quiz-card').hidden = false;
+    $('#flashcard').hidden = true;
+
     const char = glyph(item.entry, item.script);
     const promptEl = $('#prompt');
 
@@ -469,6 +482,7 @@
     }
 
     if (mode === 'type') {
+      $('#choices').hidden = false;
       $('#choices').innerHTML = '';
       $('#typebox').hidden = false;
       $('#type-input').value = '';
@@ -476,8 +490,64 @@
       $('#type-input').focus();
     } else {
       $('#typebox').hidden = true;
+      $('#choices').hidden = false;
       renderChoices(item, mode);
     }
+  }
+
+  // ---- flashcard mode: tap to flip, then say whether you knew it ----
+
+  function setupFlashcard(item) {
+    const card = $('#flashcard-card');
+    card.classList.remove('flipped');
+    $('#flash-grade').hidden = true;
+    $('#flash-hint').hidden = false;
+    $('#btn-flash-no').disabled = false;
+    $('#btn-flash-yes').disabled = false;
+
+    $('#flash-front').textContent = glyph(item.entry, item.script);
+    $('#flash-hira').textContent = item.entry.h;
+    $('#flash-kata').textContent = item.entry.k;
+    $('#flash-romaji').textContent = item.entry.r;
+    const note = MNEMONICS[item.entry.r];
+    $('#flash-mnemonic').textContent = note || '';
+    $('#flash-mnemonic').hidden = !note;
+
+    // Focus the card itself so Space/Enter flips it without reaching for a mouse.
+    card.focus({ preventScroll: true });
+  }
+
+  function toggleFlashcard() {
+    const flipped = $('#flashcard-card').classList.toggle('flipped');
+    $('#flash-grade').hidden = !flipped;
+    $('#flash-hint').hidden = flipped;
+    if (flipped) speak(session.current.item.entry.h);
+  }
+
+  $('#flashcard-card').addEventListener('click', () => {
+    if (!session || !session.current || session.current.mode !== 'flashcard' || session.answered) return;
+    toggleFlashcard();
+  });
+
+  // The speak icons sit inside the flip card; stop the click from bubbling up
+  // and flipping the card when someone just wants to hear it again.
+  ['#flash-speak-front', '#flash-speak-back'].forEach((sel) => {
+    $(sel).addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (session && session.current) speak(session.current.item.entry.h);
+    });
+  });
+
+  $('#btn-flash-no').addEventListener('click', () => gradeFlashcard(false));
+  $('#btn-flash-yes').addEventListener('click', () => gradeFlashcard(true));
+
+  function gradeFlashcard(correct) {
+    if (!session || session.answered) return;
+    session.answered = true;
+    recordAnswer(session.current.item, correct);
+    $('#btn-flash-no').disabled = true;
+    $('#btn-flash-yes').disabled = true;
+    setTimeout(nextQuestion, correct ? 300 : 650);
   }
 
   /**
@@ -527,9 +597,13 @@
     answer(accepted.includes(typed));
   });
 
-  function answer(correct, btn) {
-    session.answered = true;
-    const { item } = session.current;
+  /**
+   * The bookkeeping shared by every question type: grade the SRS card, tally
+   * session and lifetime stats, and requeue a miss for one more pass before
+   * the session ends. UI (choice buttons, feedback text, the flip card) is
+   * each mode's own concern and lives in its own handler.
+   */
+  function recordAnswer(item, correct) {
     const id = cardId(item.entry, item.script);
     state.cards[id] = grade(cardFor(item.entry, item.script), correct);
 
@@ -548,6 +622,13 @@
       session.queue.push(item);
     }
     save();
+    session.index += 1;
+  }
+
+  function answer(correct, btn) {
+    session.answered = true;
+    const { item } = session.current;
+    recordAnswer(item, correct);
 
     if (btn) {
       $$('.choice').forEach((b) => {
@@ -569,7 +650,6 @@
     fb.hidden = false;
 
     speak(item.entry.h);
-    session.index += 1;
 
     // Right answers move on briskly; wrong ones linger so the correction lands.
     setTimeout(nextQuestion, correct ? 650 : 2100);
@@ -579,9 +659,26 @@
     if (session && session.current) speak(session.current.item.entry.h);
   });
 
-  // Number keys 1-4 pick a multiple-choice answer. Faster than aiming a mouse.
+  // Keyboard shortcuts during a session: 1-4 pick a multiple-choice answer;
+  // in flashcard mode, space/enter flips the focused card and the arrow keys
+  // grade it once flipped. Faster than aiming a mouse for every card.
   document.addEventListener('keydown', (e) => {
-    if ($('#study-quiz').hidden || !session || session.answered) return;
+    if ($('#study-quiz').hidden || !session || !session.current || session.answered) return;
+
+    if (session.current.mode === 'flashcard') {
+      const flipped = $('#flashcard-card').classList.contains('flipped');
+      const cardFocused = document.activeElement === $('#flashcard-card');
+      if (cardFocused && (e.key === ' ' || e.key === 'Enter')) {
+        e.preventDefault();
+        toggleFlashcard();
+      } else if (flipped && (e.key === 'ArrowLeft' || e.key === '1')) {
+        gradeFlashcard(false);
+      } else if (flipped && (e.key === 'ArrowRight' || e.key === '2')) {
+        gradeFlashcard(true);
+      }
+      return;
+    }
+
     const n = parseInt(e.key, 10);
     const choices = $$('.choice');
     if (n >= 1 && n <= choices.length) choices[n - 1].click();

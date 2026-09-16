@@ -217,6 +217,39 @@ main { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
 .choice.right { background: var(--good-soft); border-color: var(--good); color: var(--good); opacity: 1; }
 .choice.wrong { background: var(--accent-soft); border-color: var(--bad); color: var(--bad); opacity: 1; }
 
+/* ---------- flashcard ---------- */
+.flashcard { margin-bottom: 18px; }
+.flashcard-card {
+  position: relative;
+  min-height: clamp(240px, 46vh, 340px);
+  transform-style: preserve-3d;
+  transition: transform .45s cubic-bezier(.4, .2, .2, 1);
+  cursor: pointer;
+}
+.flashcard-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
+.flashcard-card.flipped { transform: rotateY(180deg); }
+.flashcard-face {
+  position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  padding: 30px 20px; text-align: center; overflow: auto;
+}
+.flashcard-front .prompt { font-family: var(--kana-font); font-size: clamp(62px, 20vw, 110px); }
+.flashcard-back { transform: rotateY(180deg); }
+.flash-hint { text-align: center; color: var(--ink-soft); font-size: 13px; margin: 12px 0; }
+.flash-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grade-btn {
+  position: relative; padding: 16px; font-size: 16px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.grade-btn kbd {
+  font: inherit; font-size: 11px; font-weight: 600; color: var(--ink-soft);
+  background: var(--surface-2); border-radius: 4px; padding: 1px 6px;
+}
+.grade-no { border-color: var(--bad); color: var(--bad); }
+.grade-yes { border-color: var(--good); color: var(--good); }
+
 .typebox { display: flex; gap: 10px; }
 .typebox input {
   flex: 1; font: inherit; font-size: 20px; padding: 14px 16px;

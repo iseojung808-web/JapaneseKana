@@ -89,6 +89,7 @@
           <button class="is-active" data-v="recognize">Kana → romaji</button>
           <button data-v="recall">Romaji → kana</button>
           <button data-v="type">Type the reading</button>
+          <button data-v="flashcard">Flashcard</button>
           <button data-v="mixed">Mix it up</button>
         </div>
       </div>
@@ -140,6 +141,30 @@
                autocorrect="off" spellcheck="false" inputmode="latin">
         <button class="btn btn-primary" type="submit">Check</button>
       </form>
+
+      <div class="flashcard" id="flashcard" hidden>
+        <div class="flashcard-card" id="flashcard-card" role="button" tabindex="0" aria-label="Flip card">
+          <div class="flashcard-face flashcard-front">
+            <button class="speak" id="flash-speak-front" title="Hear it">🔊</button>
+            <p class="prompt-label">Tap to reveal</p>
+            <div class="prompt" id="flash-front"></div>
+          </div>
+          <div class="flashcard-face flashcard-back">
+            <button class="speak" id="flash-speak-back" title="Hear it">🔊</button>
+            <div class="detail-pair">
+              <div><span class="lbl">Hiragana</span><span class="big" id="flash-hira"></span></div>
+              <div><span class="lbl">Katakana</span><span class="big" id="flash-kata"></span></div>
+            </div>
+            <div class="detail-romaji" id="flash-romaji"></div>
+            <p class="detail-note" id="flash-mnemonic"></p>
+          </div>
+        </div>
+        <p class="flash-hint" id="flash-hint">Tap the card — or press space — to flip it.</p>
+        <div class="flash-grade" id="flash-grade" hidden>
+          <button class="btn grade-btn grade-no" id="btn-flash-no">✗ Didn't know<kbd>←</kbd></button>
+          <button class="btn grade-btn grade-yes" id="btn-flash-yes">✓ Knew it<kbd>→</kbd></button>
+        </div>
+      </div>
 
       <div class="feedback" id="feedback" hidden></div>
     </div>
