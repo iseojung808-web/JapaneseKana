@@ -499,7 +499,17 @@
 
   function setupFlashcard(item) {
     const card = $('#flashcard-card');
+
+    // Reset to the front face instantly, not via the normal flip animation.
+    // The animated version rotates while the *new* card's answer is already
+    // sitting on the back face (we're about to write it below), so for the
+    // length of the spin you're staring at the upcoming answer — the bug
+    // this whole no-transition dance exists to avoid.
+    card.classList.add('no-transition');
     card.classList.remove('flipped');
+    void card.offsetWidth; // flush the instant reset before re-enabling the transition
+    card.classList.remove('no-transition');
+
     $('#flash-grade').hidden = true;
     $('#flash-hint').hidden = false;
     $('#btn-flash-no').disabled = false;

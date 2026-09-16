@@ -228,6 +228,7 @@ main { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
 }
 .flashcard-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; }
 .flashcard-card.flipped { transform: rotateY(180deg); }
+.flashcard-card.no-transition { transition: none; }
 .flashcard-face {
   position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
