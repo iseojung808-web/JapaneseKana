@@ -16,14 +16,20 @@
 
   const defaults = () => ({
     cards: {},                   // cardId -> SRS card
+    wordCards: {},                // word card id -> SRS card (same engine, separate bucket)
     settings: {
       script: 'hiragana',
       mode: 'recognize',
       length: 20,
       lessons: ['vowel'],        // start where a beginner should start
       heat: true,
+      wordGroups: ['miru'],      // start with one verb, same "don't cram" philosophy
+      wordLength: 20,
     },
-    stats: { answers: 0, correct: 0, sessions: 0, bestStreak: 0, days: [] },
+    stats: {
+      answers: 0, correct: 0, sessions: 0, bestStreak: 0, days: [],
+      wordAnswers: 0, wordCorrect: 0,
+    },
   });
 
   let state = load();
@@ -39,6 +45,7 @@
     const base = defaults();
     return {
       cards: (saved && saved.cards) || base.cards,
+      wordCards: (saved && saved.wordCards) || base.wordCards,
       settings: Object.assign(base.settings, saved && saved.settings),
       stats: Object.assign(base.stats, saved && saved.stats),
     };
@@ -110,6 +117,13 @@
     if (view === 'home') renderHome();
     if (view === 'chart') renderChart();
     if (view === 'progress') renderProgress();
+    if (view === 'words') {
+      renderWordBrowse();
+      renderWordSetup();
+      renderWordSummary();
+      // Land on the reference list unless a practice session is mid-flight.
+      if (!wordSession) showWordsSubview('browse');
+    }
   }
 
   $('#tabs').addEventListener('click', (e) => {
@@ -793,6 +807,9 @@
     renderChart();
     renderProgress();
     renderSetup();
+    renderWordBrowse();
+    renderWordSetup();
+    renderWordSummary();
   }
 
   $('#btn-reset').addEventListener('click', () => {
@@ -800,6 +817,316 @@
     state = defaults();
     save();
     refreshAllViews();
+  });
+
+  // ---------------------------------------------------------------- words
+
+  function wordCardFor(card) {
+    return state.wordCards[card.id] || newCard(card.id);
+  }
+
+  /** Every group a learner can pick in Practice: one per verb, plus "other" for the rest. */
+  function wordGroupIds() {
+    return [...VERBS.map((v) => v.id), 'other'];
+  }
+
+  function wordCardsForGroup(groupId) {
+    return groupId === 'other'
+      ? WORD_CARDS.filter((c) => c.type !== 'verb')
+      : WORD_CARDS.filter((c) => c.type === 'verb' && c.baseWord === groupId);
+  }
+
+  function selectedWordPool() {
+    return state.settings.wordGroups.flatMap(wordCardsForGroup);
+  }
+
+  function wordGroupMastery(groupId) {
+    const cards = wordCardsForGroup(groupId).map(wordCardFor);
+    if (!cards.length) return 0;
+    return cards.reduce((sum, c) => sum + mastery(c), 0) / cards.length;
+  }
+
+  function renderWordSummary() {
+    const cards = Object.values(state.wordCards);
+    const started = cards.filter((c) => c.seen > 0).length;
+    const acc = state.stats.wordAnswers
+      ? Math.round((state.stats.wordCorrect / state.stats.wordAnswers) * 100)
+      : 0;
+    $('#word-summary').textContent = started
+      ? `${started} of ${WORD_CARDS.length} word cards started · ${acc}% accuracy`
+      : `${WORD_CARDS.length} word cards available — verbs with all their forms, plus common nouns and adjectives.`;
+  }
+
+  // ---- browsing: the reference list, always furigana'd ----
+
+  function renderWordBrowse() {
+    $('#verb-groups').innerHTML = VERBS.map((v) => {
+      const head = v.forms.dictionary;
+      const rows = VERB_FORM_ORDER.filter((k) => k !== 'dictionary').map((key) => {
+        const f = v.forms[key];
+        return `<button type="button" class="word-form-row" data-speak="${f.kana}">
+          <span class="jp">${furiganaHTML(f.segs)}</span>
+          <span class="romaji">${f.romaji}</span>
+          <span class="label">${f.label}</span>
+          <span class="meaning">${f.meaning}</span>
+        </button>`;
+      }).join('');
+      return `<div class="word-group">
+        <button type="button" class="word-group-head" data-speak="${head.kana}">
+          <span class="jp">${furiganaHTML(head.segs)}</span>
+          <span class="romaji">${head.romaji}</span>
+          <span class="meaning">${v.meaning}</span>
+          <span class="badge">${v.group}</span>
+        </button>
+        ${v.note ? `<p class="word-group-note">${v.note}</p>` : ''}
+        <div class="word-forms">${rows}</div>
+      </div>`;
+    }).join('');
+
+    $('#other-words').innerHTML = OTHER_WORDS.map((w) => `
+      <button type="button" class="word-flat-item" data-speak="${w.kana}">
+        <span class="jp">${furiganaHTML(w.segs)}</span>
+        <span class="romaji">${w.romaji}</span>
+        <span class="meaning">${w.meaning}</span>
+        <span class="badge">${w.type}</span>
+      </button>`).join('');
+  }
+
+  [$('#verb-groups'), $('#other-words')].forEach((el) => {
+    el.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-speak]');
+      if (target) speak(target.dataset.speak);
+    });
+  });
+
+  function showWordsSubview(sub) {
+    $('#words-browse').hidden = sub !== 'browse';
+    $('#words-practice').hidden = sub !== 'practice';
+    $$('#words-tab button').forEach((b) => b.classList.toggle('is-active', b.dataset.wordsView === sub));
+  }
+
+  $('#words-tab').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (btn) showWordsSubview(btn.dataset.wordsView);
+  });
+
+  // ---- practice setup ----
+
+  function renderWordSetup() {
+    const verbChips = VERBS.map((v) => {
+      const on = state.settings.wordGroups.includes(v.id);
+      return `<button class="chip ${on ? 'on' : ''}" data-word-group="${v.id}">${v.forms.dictionary.romaji}</button>`;
+    }).join('');
+    const otherOn = state.settings.wordGroups.includes('other');
+    $('#word-opt-groups').innerHTML = verbChips +
+      `<button class="chip ${otherOn ? 'on' : ''}" data-word-group="other">nouns &amp; adjectives</button>`;
+    $$('#word-opt-length button').forEach((b) =>
+      b.classList.toggle('is-active', b.dataset.v === String(state.settings.wordLength)));
+  }
+
+  $('#word-opt-groups').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    const id = chip.dataset.wordGroup;
+    const picked = new Set(state.settings.wordGroups);
+    picked.has(id) ? picked.delete(id) : picked.add(id);
+    state.settings.wordGroups = Array.from(picked);
+    save();
+    renderWordSetup();
+  });
+
+  $('#word-opt-length').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.settings.wordLength = Number(btn.dataset.v);
+    save();
+    renderWordSetup();
+  });
+
+  $('#word-chip-actions').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-word-select]');
+    if (!btn) return;
+    const all = wordGroupIds();
+    if (btn.dataset.wordSelect === 'all') state.settings.wordGroups = all;
+    if (btn.dataset.wordSelect === 'none') state.settings.wordGroups = [];
+    if (btn.dataset.wordSelect === 'weak') {
+      state.settings.wordGroups = all.filter((id) => {
+        const m = wordGroupMastery(id);
+        return m > 0 && m < 0.8;
+      });
+    }
+    save();
+    renderWordSetup();
+  });
+
+  // ---- practice: flashcard only, same flip mechanic and SRS engine as kana ----
+
+  let wordSession = null;
+
+  function startWordSession() {
+    const pool = selectedWordPool();
+    if (!pool.length) {
+      $('#word-setup-warn').hidden = false;
+      return;
+    }
+    $('#word-setup-warn').hidden = true;
+
+    const byId = new Map(pool.map((c) => [c.id, c]));
+    const srsCards = pool.map(wordCardFor);
+    const size = state.settings.wordLength || pool.length;
+    let queue = buildQueue(srsCards, size).map((c) => byId.get(c.id));
+    if (!queue.length) queue = shuffle(pool).slice(0, size);
+    else queue = shuffle(queue);
+
+    wordSession = {
+      queue, index: 0, right: 0, wrong: 0, streak: 0, best: 0, missed: [], answered: false, startedAt: Date.now(),
+    };
+
+    $('#word-setup').hidden = true;
+    $('#word-done').hidden = true;
+    $('#word-quiz').hidden = false;
+    nextWordCard();
+  }
+
+  $('#word-btn-start').addEventListener('click', startWordSession);
+
+  function nextWordCard() {
+    if (wordSession.index >= wordSession.queue.length) return finishWordSession();
+
+    const card = wordSession.queue[wordSession.index];
+    wordSession.current = card;
+    wordSession.answered = false;
+
+    $('#word-quiz-bar').style.width = ((wordSession.index / wordSession.queue.length) * 100) + '%';
+    $('#word-quiz-count').textContent = `${wordSession.index + 1} / ${wordSession.queue.length}`;
+    $('#word-quiz-streak').textContent = wordSession.streak >= 3 ? `🔥 ${wordSession.streak} in a row` : '';
+
+    setupWordFlashcard(card);
+  }
+
+  function setupWordFlashcard(card) {
+    const el = $('#word-flashcard-card');
+    // Same instant-reset trick as the kana flashcard: no animated un-flip,
+    // or you glimpse the next card's answer spinning past.
+    el.classList.add('no-transition');
+    el.classList.remove('flipped');
+    void el.offsetWidth;
+    el.classList.remove('no-transition');
+
+    $('#word-flash-grade').hidden = true;
+    $('#word-flash-hint').hidden = false;
+    $('#word-btn-flash-no').disabled = false;
+    $('#word-btn-flash-yes').disabled = false;
+
+    $('#word-flash-label').textContent =
+      card.type === 'verb' ? card.label : card.type === 'noun' ? 'noun' : 'adjective';
+    $('#word-flash-front').innerHTML = furiganaHTML(card.segs);
+
+    if (card.type === 'verb') {
+      const base = VERBS.find((v) => v.id === card.baseWord);
+      $('#word-flash-base').textContent = `from ${base.forms.dictionary.romaji} — "${card.baseMeaning}"`;
+      $('#word-flash-base').hidden = false;
+    } else {
+      $('#word-flash-base').hidden = true;
+    }
+    $('#word-flash-romaji').textContent = card.romaji;
+    $('#word-flash-meaning').textContent = card.meaning;
+    $('#word-flash-grammar-note').textContent = card.note || '';
+    $('#word-flash-grammar-note').hidden = !card.note;
+
+    el.focus({ preventScroll: true });
+  }
+
+  function toggleWordFlashcard() {
+    const flipped = $('#word-flashcard-card').classList.toggle('flipped');
+    $('#word-flash-grade').hidden = !flipped;
+    $('#word-flash-hint').hidden = flipped;
+    if (flipped) speak(wordSession.current.kana);
+  }
+
+  $('#word-flashcard-card').addEventListener('click', () => {
+    if (!wordSession || !wordSession.current || wordSession.answered) return;
+    toggleWordFlashcard();
+  });
+
+  ['#word-flash-speak-front', '#word-flash-speak-back'].forEach((sel) => {
+    $(sel).addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (wordSession && wordSession.current) speak(wordSession.current.kana);
+    });
+  });
+
+  $('#word-btn-flash-no').addEventListener('click', () => gradeWordFlashcard(false));
+  $('#word-btn-flash-yes').addEventListener('click', () => gradeWordFlashcard(true));
+
+  function gradeWordFlashcard(correct) {
+    if (!wordSession || wordSession.answered) return;
+    wordSession.answered = true;
+    const card = wordSession.current;
+    state.wordCards[card.id] = grade(wordCardFor(card), correct);
+
+    state.stats.wordAnswers += 1;
+    if (correct) {
+      state.stats.wordCorrect += 1;
+      wordSession.right += 1;
+      wordSession.streak += 1;
+      wordSession.best = Math.max(wordSession.best, wordSession.streak);
+    } else {
+      wordSession.wrong += 1;
+      wordSession.streak = 0;
+      wordSession.missed.push(card);
+      wordSession.queue.push(card);
+    }
+    save();
+    wordSession.index += 1;
+
+    $('#word-btn-flash-no').disabled = true;
+    $('#word-btn-flash-yes').disabled = true;
+    setTimeout(nextWordCard, correct ? 300 : 650);
+  }
+
+  $('#word-btn-quit').addEventListener('click', finishWordSession);
+
+  function finishWordSession() {
+    if (!wordSession) return;
+    const total = wordSession.right + wordSession.wrong;
+    const pct = total ? Math.round((wordSession.right / total) * 100) : 0;
+    const minutes = Math.max(1, Math.round((Date.now() - wordSession.startedAt) / 60000));
+
+    $('#word-scorecard').innerHTML = [
+      ['Correct', wordSession.right],
+      ['Missed', wordSession.wrong],
+      ['Accuracy', pct + '%'],
+      ['Best streak', wordSession.best],
+      ['Minutes', minutes],
+    ].map(([label, value]) => `<div><b>${value}</b><span>${label}</span></div>`).join('');
+
+    wordSession = null;
+    $('#word-quiz').hidden = true;
+    $('#word-done').hidden = false;
+    renderWordSummary();
+  }
+
+  $('#word-btn-again').addEventListener('click', () => {
+    $('#word-done').hidden = true;
+    $('#word-setup').hidden = false;
+    renderWordSetup();
+  });
+  $('#word-btn-browse').addEventListener('click', () => showWordsSubview('browse'));
+
+  // Space/Enter flips the focused card; arrow keys (or 1/2) grade it once flipped.
+  document.addEventListener('keydown', (e) => {
+    if ($('#word-quiz').hidden || !wordSession || !wordSession.current || wordSession.answered) return;
+    const flipped = $('#word-flashcard-card').classList.contains('flipped');
+    const cardFocused = document.activeElement === $('#word-flashcard-card');
+    if (cardFocused && (e.key === ' ' || e.key === 'Enter')) {
+      e.preventDefault();
+      toggleWordFlashcard();
+    } else if (flipped && (e.key === 'ArrowLeft' || e.key === '1')) {
+      gradeWordFlashcard(false);
+    } else if (flipped && (e.key === 'ArrowRight' || e.key === '2')) {
+      gradeWordFlashcard(true);
+    }
   });
 
   // ---------------------------------------------------------------- backup

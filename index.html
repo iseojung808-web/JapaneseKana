@@ -21,6 +21,7 @@
     <button class="tab is-active" data-view="home">Home</button>
     <button class="tab" data-view="chart">Chart</button>
     <button class="tab" data-view="study">Study</button>
+    <button class="tab" data-view="words">Words</button>
     <button class="tab" data-view="progress">Progress</button>
   </nav>
 </header>
@@ -180,6 +181,107 @@
     </div>
   </section>
 
+  <!-- ============ WORDS ============ -->
+  <section class="view" id="view-words">
+    <div class="toolbar">
+      <div class="seg" id="words-tab">
+        <button class="is-active" data-words-view="browse">Browse</button>
+        <button data-words-view="practice">Practice</button>
+      </div>
+    </div>
+    <p class="section-note" id="word-summary"></p>
+
+    <div id="words-browse">
+      <h2 class="section-title">Verbs and their forms</h2>
+      <p class="section-note">
+        These aren't three separate words to memorize — <ruby>見<rt>み</rt></ruby>る (miru),
+        <ruby>見<rt>み</rt></ruby>てる (miteru), and <ruby>見<rt>み</rt></ruby>てね (mitene) are the same verb:
+        the dictionary form, a casual "is watching," and a casual "watch it,
+        okay?" Learn the pattern once and it applies to almost every verb below.
+      </p>
+      <div class="word-groups" id="verb-groups"></div>
+
+      <h2 class="section-title">Other words</h2>
+      <p class="section-note">Nouns and adjectives don't conjugate this way, but kanji still always gets furigana.</p>
+      <div class="word-flat" id="other-words"></div>
+    </div>
+
+    <div id="words-practice" hidden>
+      <div id="word-setup">
+        <h2 class="section-title">Practice</h2>
+        <p class="section-note">
+          Flashcard only: tap to flip, then say honestly whether you knew it.
+          Feeds the same spaced-repetition scheduler as kana.
+        </p>
+
+        <div class="field">
+          <span class="field-label">What to include</span>
+          <div class="chips" id="word-opt-groups"></div>
+          <div class="chip-actions" id="word-chip-actions">
+            <button class="link" data-word-select="all">select all</button>
+            <button class="link" data-word-select="none">clear</button>
+            <button class="link" data-word-select="weak">just my weak spots</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Length</span>
+          <div class="seg" id="word-opt-length">
+            <button data-v="10">10</button>
+            <button class="is-active" data-v="20">20</button>
+            <button data-v="40">40</button>
+            <button data-v="0">everything due</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="word-btn-start">Start</button>
+        <p class="warn" id="word-setup-warn" hidden>Pick at least one group first.</p>
+      </div>
+
+      <div id="word-quiz" hidden>
+        <div class="quiz-head">
+          <div class="progressbar"><i id="word-quiz-bar"></i></div>
+          <div class="quiz-meta">
+            <span id="word-quiz-count">1 / 20</span>
+            <span class="streak" id="word-quiz-streak"></span>
+            <button class="link" id="word-btn-quit">end session</button>
+          </div>
+        </div>
+
+        <div class="flashcard" id="word-flashcard">
+          <div class="flashcard-card" id="word-flashcard-card" role="button" tabindex="0" aria-label="Flip card">
+            <div class="flashcard-face flashcard-front">
+              <button class="speak" id="word-flash-speak-front" title="Hear it">🔊</button>
+              <p class="prompt-label" id="word-flash-label">Tap to reveal</p>
+              <div class="prompt" id="word-flash-front"></div>
+            </div>
+            <div class="flashcard-face flashcard-back">
+              <button class="speak" id="word-flash-speak-back" title="Hear it">🔊</button>
+              <p class="detail-note" id="word-flash-base"></p>
+              <div class="detail-romaji" id="word-flash-romaji"></div>
+              <p class="detail-note" id="word-flash-meaning"></p>
+              <p class="detail-note" id="word-flash-grammar-note" hidden></p>
+            </div>
+          </div>
+          <p class="flash-hint" id="word-flash-hint">Tap the card — or press space — to flip it.</p>
+          <div class="flash-grade" id="word-flash-grade" hidden>
+            <button class="btn grade-btn grade-no" id="word-btn-flash-no">✗ Didn't know<kbd>←</kbd></button>
+            <button class="btn grade-btn grade-yes" id="word-btn-flash-yes">✓ Knew it<kbd>→</kbd></button>
+          </div>
+        </div>
+      </div>
+
+      <div id="word-done" hidden>
+        <h2 class="section-title">Session complete</h2>
+        <div class="scorecard" id="word-scorecard"></div>
+        <div class="hero-actions">
+          <button class="btn btn-primary" id="word-btn-again">Another round</button>
+          <button class="btn" id="word-btn-browse">Back to browsing</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ PROGRESS ============ -->
   <section class="view" id="view-progress">
     <h2 class="section-title">Progress</h2>
@@ -221,6 +323,7 @@
 </footer>
 
 <script src="js/kana-data.js"></script>
+<script src="js/word-data.js"></script>
 <script src="js/srs.js"></script>
 <script src="js/app.js"></script>
 </body>

@@ -53,6 +53,20 @@ quit. Sessions mix cards that are due with new ones, weakest first.
 **Progress** — accuracy, day streak, the characters that keep tripping you up,
 and a seven-day forecast of your review load.
 
+**Words** — kana gets you reading; this gets you recognizing actual vocabulary,
+including the part that trips people up hardest: verbs conjugate. 見る (miru),
+見てる (miteru), and 見てね (mitene) aren't three unrelated words — they're the
+dictionary form, a casual "is watching," and a casual "watch it, okay?" of the
+*same* verb. **Browse** lists 15 common verbs across all three groups
+(ichidan, godan, and the two genuinely irregular verbs, する and 来る) with all
+seven forms each — dictionary, polite, te-form, the two casual te-form
+contractions, negative, and past — plus 18 everyday nouns and adjectives.
+Every kanji is annotated with furigana, always, via real `<ruby>` markup, not
+a rendered image or an inline romaji crutch. **Practice** is a flashcard
+session over whichever verbs you pick, self-graded exactly like the kana
+flashcard mode, and backed by the same spaced-repetition scheduler — 123 word
+cards, tracked independently from your kana progress.
+
 **Backup** — progress lives only in the browser you're using (see below), which
 is a problem in anything temporary: a Codespace, a shared machine, a browser
 profile you're about to clear. **Export progress** downloads a `.txt` file —
@@ -84,7 +98,7 @@ session daily until the forecast chart runs dry.
 ```bash
 open index.html          # that's genuinely it
 npm start                # or serve it at http://localhost:8080
-npm test                 # 15 unit tests over the data and the scheduler
+npm test                 # 26 unit tests over the data and the scheduler
 ```
 
 Audio uses the browser's built-in speech synthesis. If your system has no
@@ -93,12 +107,14 @@ Japanese voice installed, the app stays silent and everything else works.
 ## Files
 
 ```
-index.html          markup for all four views
-css/styles.css      one stylesheet, light and dark, mobile down to 320px
-js/kana-data.js     the 104 kana, lessons, mnemonics, vocabulary
-js/srs.js           the scheduler — pure functions, no DOM
-js/app.js           views, quiz logic, persistence
-test/kana.test.js   unit tests
+index.html               markup for all five views
+css/styles.css           one stylesheet, light and dark, mobile down to 320px
+js/kana-data.js          the 104 kana, lessons, mnemonics, vocabulary
+js/word-data.js          15 verbs (7 forms each) + 18 nouns/adjectives, furigana included
+js/srs.js                the scheduler — pure functions, no DOM
+js/app.js                views, quiz logic, persistence
+test/kana.test.js        unit tests for the kana data and scheduler
+test/word-data.test.js   unit tests for the word data and conjugation rules
 ```
 
 Progress is stored in `localStorage` under `kana-trainer/v1`. It never leaves
