@@ -28,18 +28,27 @@
 
   let state = load();
 
+  /**
+   * Layer saved data onto a fresh default state, field by field, so a save
+   * from an older (or newer) version of the app doesn't break just because
+   * it's missing something the current code expects. Shared by loading from
+   * localStorage and by importing a backup file — the two are the same
+   * operation with a different source.
+   */
+  function mergeState(saved) {
+    const base = defaults();
+    return {
+      cards: (saved && saved.cards) || base.cards,
+      settings: Object.assign(base.settings, saved && saved.settings),
+      stats: Object.assign(base.stats, saved && saved.stats),
+    };
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (!raw) return defaults();
-      // Merge onto defaults so a version with new fields doesn't break on old saves.
-      const saved = JSON.parse(raw);
-      const base = defaults();
-      return {
-        cards: saved.cards || base.cards,
-        settings: Object.assign(base.settings, saved.settings),
-        stats: Object.assign(base.stats, saved.stats),
-      };
+      return mergeState(JSON.parse(raw));
     } catch (err) {
       console.warn('Could not read saved progress, starting fresh.', err);
       return defaults();
@@ -778,12 +787,114 @@
       </div>`).join('');
   }
 
+  /** Re-render every view's data after the underlying state is replaced wholesale. */
+  function refreshAllViews() {
+    renderHome();
+    renderChart();
+    renderProgress();
+    renderSetup();
+  }
+
   $('#btn-reset').addEventListener('click', () => {
     if (!confirm('Erase every card, streak and statistic? This cannot be undone.')) return;
     state = defaults();
     save();
-    renderProgress();
-    renderHome();
+    refreshAllViews();
+  });
+
+  // ---------------------------------------------------------------- backup
+
+  // A plain-text export: a human-readable header (so it's still recognizable
+  // if someone opens it in Notepad years from now) followed by the actual
+  // state as JSON, which is what actually gets read back in on import.
+  const EXPORT_MARKER = '--- raw data below — do not edit ---';
+
+  function exportProgress() {
+    const cards = Object.values(state.cards);
+    const started = cards.filter((c) => c.seen > 0).length;
+    const acc = state.stats.answers ? Math.round((state.stats.correct / state.stats.answers) * 100) : 0;
+    const now = new Date();
+
+    const text = [
+      'KANA-TRAINER-PROGRESS v1',
+      'This is a backup of your Kana Trainer progress.',
+      'To restore it: open the app, go to Progress, click "Import progress," and pick this file.',
+      '',
+      `exported: ${now.toISOString()}`,
+      `cards started: ${started}`,
+      `overall accuracy: ${acc}%`,
+      `day streak: ${dayStreak()}`,
+      '',
+      EXPORT_MARKER,
+      JSON.stringify(state, null, 2),
+      '',
+    ].join('\n');
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kana-trainer-progress-${now.toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Pull the JSON payload back out of an export file, with actual error messages. */
+  function parseExportFile(text) {
+    const idx = text.indexOf(EXPORT_MARKER);
+    if (!text.startsWith('KANA-TRAINER-PROGRESS') || idx === -1) {
+      throw new Error('That doesn\'t look like a Kana Trainer export file.');
+    }
+    let data;
+    try {
+      data = JSON.parse(text.slice(idx + EXPORT_MARKER.length));
+    } catch (err) {
+      throw new Error('The file\'s data is corrupted, or it was edited and broke the JSON.');
+    }
+    if (!data || typeof data !== 'object' || !data.cards || !data.settings || !data.stats) {
+      throw new Error('The file is missing progress data it should have.');
+    }
+    return data;
+  }
+
+  function showImportStatus(ok, message) {
+    const el = $('#import-status');
+    el.className = 'import-status ' + (ok ? 'ok' : 'bad');
+    el.textContent = message;
+    el.hidden = false;
+  }
+
+  function importProgress(file) {
+    if (session) {
+      showImportStatus(false, 'Finish or end your current study session before importing.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = parseExportFile(String(reader.result));
+        const cardCount = Object.keys(parsed.cards).length;
+        if (!confirm(`Import this file and replace your current progress (${cardCount} cards)? This cannot be undone.`)) return;
+        state = mergeState(parsed);
+        save();
+        refreshAllViews();
+        showImportStatus(true, `Imported ${cardCount} cards. You're all set.`);
+      } catch (err) {
+        showImportStatus(false, err.message);
+      }
+    };
+    reader.onerror = () => showImportStatus(false, 'Could not read that file.');
+    reader.readAsText(file);
+  }
+
+  $('#btn-export').addEventListener('click', exportProgress);
+  $('#btn-import-trigger').addEventListener('click', () => $('#import-file').click());
+  $('#import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) importProgress(file);
+    e.target.value = ''; // clear it so re-importing the same file again still fires 'change'
   });
 
   // ---------------------------------------------------------------- boot

@@ -53,6 +53,17 @@ quit. Sessions mix cards that are due with new ones, weakest first.
 **Progress** — accuracy, day streak, the characters that keep tripping you up,
 and a seven-day forecast of your review load.
 
+**Backup** — progress lives only in the browser you're using (see below), which
+is a problem in anything temporary: a Codespace, a shared machine, a browser
+profile you're about to clear. **Export progress** downloads a `.txt` file —
+a short human-readable header (when you exported, your accuracy, your streak)
+followed by the actual data as JSON. **Import progress** reads one back and
+replaces your current state with it, after confirming. Round-trips exactly:
+export, wipe everything, import, and you're back to the same cards, same
+boxes, same stats. Importing a file that isn't one of these exports, or one
+whose JSON got mangled, fails with an actual explanation instead of silently
+corrupting your save.
+
 ## Suggested route
 
 Lessons are five characters at a time, in the order Japanese schoolchildren

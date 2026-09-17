@@ -288,6 +288,9 @@ main { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
 .forecast .day span { font-size: 11px; color: var(--ink-soft); }
 .forecast .day em { font-size: 11px; font-style: normal; color: var(--ink-soft); }
 .empty { color: var(--ink-soft); font-size: 14px; }
+.import-status { font-size: 14px; margin: 10px 0 0; }
+.import-status.ok { color: var(--good); }
+.import-status.bad { color: var(--bad); }
 .danger { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); }
 
 /* ---------- detail sheet ---------- */

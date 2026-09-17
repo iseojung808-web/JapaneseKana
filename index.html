@@ -188,6 +188,21 @@
     <div class="trouble" id="trouble"></div>
     <h3 class="section-title sm">Upcoming reviews</h3>
     <div class="forecast" id="forecast"></div>
+
+    <h3 class="section-title sm">Backup</h3>
+    <p class="section-note">
+      Progress lives only in this browser, so it disappears if you clear site
+      data or move to a fresh Codespace. Export it to a file you can keep, and
+      import it back to pick up right where you left off — on this device or
+      any other.
+    </p>
+    <div class="hero-actions">
+      <button class="btn" id="btn-export">⬇ Export progress</button>
+      <button class="btn" id="btn-import-trigger">⬆ Import progress</button>
+      <input type="file" id="import-file" accept=".txt,text/plain" hidden>
+    </div>
+    <p class="import-status" id="import-status" hidden></p>
+
     <div class="danger">
       <button class="link danger-link" id="btn-reset">Erase all my progress</button>
     </div>
