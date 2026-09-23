@@ -180,53 +180,75 @@ rt {
   user-select: none;
 }
 
-/* ---------- word browsing ---------- */
+/* ---------- words: my list ---------- */
 .word-groups { display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px; }
 .word-group {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow); overflow: hidden;
 }
 .word-group-head {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 14px;
-  padding: 16px 18px; cursor: pointer; background: var(--surface-2);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  padding: 12px 14px 12px 18px; background: var(--surface-2);
 }
-.word-group-head .jp { font-family: var(--kana-font); font-size: 26px; }
-.word-group-head .romaji { font-weight: 700; color: var(--ink-soft); }
-.word-group-head .meaning { color: var(--ink-soft); flex: 1; min-width: 140px; }
-.word-group-head .badge {
-  font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+.word-head-main {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; flex: 1; min-width: 200px;
+  background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.word-head-main .jp { font-family: var(--kana-font); font-size: 26px; }
+.word-head-main .romaji { font-weight: 700; color: var(--ink-soft); }
+.word-head-main .meaning { color: var(--ink-soft); flex-basis: 100%; font-size: 14px; }
+.badge {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
   color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line);
   border-radius: 999px; padding: 2px 9px;
 }
-.word-group-note { padding: 0 18px; margin: 10px 0 0; font-size: 13px; color: var(--ink-soft); }
+.badge.jlpt { color: var(--accent); border-color: currentColor; }
+.remove {
+  background: none; border: 0; color: var(--ink-soft); cursor: pointer; font-size: 16px;
+  padding: 4px 8px; border-radius: 8px;
+}
+.remove:hover { color: var(--bad); background: var(--accent-soft); }
 .word-forms { padding: 4px 18px 14px; display: flex; flex-direction: column; }
 .word-form-row {
-  display: grid; grid-template-columns: minmax(90px, auto) minmax(70px, auto) minmax(110px, auto) 1fr;
+  display: grid; grid-template-columns: minmax(110px, auto) minmax(90px, auto) minmax(140px, auto) 1fr;
   gap: 6px 14px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line);
   cursor: pointer; background: none; border-left: 0; border-right: 0; border-bottom: 0;
   font: inherit; text-align: left; width: 100%; color: inherit;
 }
+.word-form-row:first-child { border-top: 0; }
 .word-form-row .jp { font-family: var(--kana-font); font-size: 19px; }
 .word-form-row .romaji { color: var(--ink-soft); }
 .word-form-row .label { font-size: 12px; color: var(--accent); }
 .word-form-row .meaning { color: var(--ink-soft); font-size: 14px; }
+.empty-deck {
+  text-align: center; padding: 32px 20px; border: 1px dashed var(--line); border-radius: var(--radius);
+  color: var(--ink-soft);
+}
+.empty-deck p { margin: 0 0 14px; }
 
-.word-flat { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
-.word-flat-item {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-  padding: 14px; text-align: left; font: inherit; cursor: pointer;
+/* ---------- words: find ---------- */
+#words-find .toolbar { margin-bottom: 8px; }
+.result-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 10px; }
+.result-actions span { color: var(--ink-soft); font-size: 14px; }
+.jisho-results { display: flex; flex-direction: column; gap: 8px; }
+.result-item {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; align-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
 }
-.word-flat-item .jp { font-family: var(--kana-font); font-size: 22px; display: block; }
-.word-flat-item .romaji { color: var(--ink-soft); font-size: 13px; }
-.word-flat-item .meaning { display: block; font-size: 14px; margin-top: 2px; }
-.word-flat-item .badge {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft);
-}
+.result-item .jp { font-family: var(--kana-font); font-size: 22px; margin-right: 10px; }
+.result-item .romaji { color: var(--ink-soft); font-size: 14px; margin-right: 8px; }
+.result-item .meaning { font-size: 14px; color: var(--ink-soft); margin: 4px 0 0; }
+.result-item .badges { display: inline-flex; flex-wrap: wrap; gap: 5px; vertical-align: middle; }
+.result-item .btn { padding: 8px 14px; font-size: 14px; }
+.result-item .btn:disabled { opacity: .6; cursor: default; }
+.attribution { font-size: 12px; color: var(--ink-soft); margin-top: 28px; }
+.attribution a { color: inherit; }
 
 @media (max-width: 520px) {
   .word-form-row { grid-template-columns: minmax(80px, auto) 1fr; }
   .word-form-row .label { grid-column: 1 / -1; }
   .word-form-row .meaning { grid-column: 1 / -1; }
+  .result-item { grid-template-columns: 1fr; }
 }
 
 /* ---------- study setup ---------- */
@@ -315,7 +337,7 @@ rt {
 
 .typebox { display: flex; gap: 10px; }
 .typebox input {
-  flex: 1; font: inherit; font-size: 20px; padding: 14px 16px;
+  flex: 1; min-width: 0; font: inherit; font-size: 20px; padding: 14px 16px;
   border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface); color: var(--ink);
 }

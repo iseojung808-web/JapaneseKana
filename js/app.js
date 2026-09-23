@@ -17,14 +17,18 @@
   const defaults = () => ({
     cards: {},                   // cardId -> SRS card
     wordCards: {},                // word card id -> SRS card (same engine, separate bucket)
+    deck: [],                     // words the learner added from Jisho, oldest first
+    discover: {},                 // JLPT level -> next Jisho page to fetch
     settings: {
       script: 'hiragana',
       mode: 'recognize',
       length: 20,
       lessons: ['vowel'],        // start where a beginner should start
       heat: true,
-      wordGroups: ['miru'],      // start with one verb, same "don't cram" philosophy
+      wordTypes: ['verb', 'adjective', 'other'],
+      wordBaseOnly: false,
       wordLength: 20,
+      jlptLevel: 'N5',
     },
     stats: {
       answers: 0, correct: 0, sessions: 0, bestStreak: 0, days: [],
@@ -46,6 +50,8 @@
     return {
       cards: (saved && saved.cards) || base.cards,
       wordCards: (saved && saved.wordCards) || base.wordCards,
+      deck: (saved && Array.isArray(saved.deck)) ? saved.deck : base.deck,
+      discover: (saved && saved.discover) || base.discover,
       settings: Object.assign(base.settings, saved && saved.settings),
       stats: Object.assign(base.stats, saved && saved.stats),
     };
@@ -118,11 +124,12 @@
     if (view === 'chart') renderChart();
     if (view === 'progress') renderProgress();
     if (view === 'words') {
-      renderWordBrowse();
+      renderDeck();
       renderWordSetup();
       renderWordSummary();
-      // Land on the reference list unless a practice session is mid-flight.
-      if (!wordSession) showWordsSubview('browse');
+      renderResults();
+      // Land on the learner's own list unless a practice session is mid-flight.
+      if (!wordSession) showWordsSubview(state.deck.length ? 'mine' : 'find');
     }
   }
 
@@ -807,9 +814,10 @@
     renderChart();
     renderProgress();
     renderSetup();
-    renderWordBrowse();
+    renderDeck();
     renderWordSetup();
     renderWordSummary();
+    renderResults();
   }
 
   $('#btn-reset').addEventListener('click', () => {
@@ -825,114 +833,242 @@
     return state.wordCards[card.id] || newCard(card.id);
   }
 
-  /** Every group a learner can pick in Practice: one per verb, plus "other" for the rest. */
-  function wordGroupIds() {
-    return [...VERBS.map((v) => v.id), 'other'];
+  function inDeck(key) {
+    return state.deck.some((e) => e.key === key);
   }
 
-  function wordCardsForGroup(groupId) {
-    return groupId === 'other'
-      ? WORD_CARDS.filter((c) => c.type !== 'verb')
-      : WORD_CARDS.filter((c) => c.type === 'verb' && c.baseWord === groupId);
-  }
-
-  function selectedWordPool() {
-    return state.settings.wordGroups.flatMap(wordCardsForGroup);
-  }
-
-  function wordGroupMastery(groupId) {
-    const cards = wordCardsForGroup(groupId).map(wordCardFor);
-    if (!cards.length) return 0;
-    return cards.reduce((sum, c) => sum + mastery(c), 0) / cards.length;
+  /** Every card the learner's list produces — one per conjugated form. */
+  function allWordCards() {
+    return state.deck.flatMap(cardsForEntry);
   }
 
   function renderWordSummary() {
-    const cards = Object.values(state.wordCards);
-    const started = cards.filter((c) => c.seen > 0).length;
+    const cards = allWordCards();
+    const started = cards.filter((c) => wordCardFor(c).seen > 0).length;
+    const due = dueCards(cards.map(wordCardFor).filter((c) => c.seen > 0)).length;
     const acc = state.stats.wordAnswers
       ? Math.round((state.stats.wordCorrect / state.stats.wordAnswers) * 100)
       : 0;
-    $('#word-summary').textContent = started
-      ? `${started} of ${WORD_CARDS.length} word cards started · ${acc}% accuracy`
-      : `${WORD_CARDS.length} word cards available — verbs with all their forms, plus common nouns and adjectives.`;
+    $('#word-summary').textContent = state.deck.length
+      ? `${state.deck.length} word${state.deck.length === 1 ? '' : 's'} in your list · ${cards.length} cards · ` +
+        `${started} started · ${due} due` + (state.stats.wordAnswers ? ` · ${acc}% accuracy` : '')
+      : 'Your word list is empty — add words from Jisho to start.';
   }
-
-  // ---- browsing: the reference list, always furigana'd ----
-
-  function renderWordBrowse() {
-    $('#verb-groups').innerHTML = VERBS.map((v) => {
-      const head = v.forms.dictionary;
-      const rows = VERB_FORM_ORDER.filter((k) => k !== 'dictionary').map((key) => {
-        const f = v.forms[key];
-        return `<button type="button" class="word-form-row" data-speak="${f.kana}">
-          <span class="jp">${furiganaHTML(f.segs)}</span>
-          <span class="romaji">${f.romaji}</span>
-          <span class="label">${f.label}</span>
-          <span class="meaning">${f.meaning}</span>
-        </button>`;
-      }).join('');
-      return `<div class="word-group">
-        <button type="button" class="word-group-head" data-speak="${head.kana}">
-          <span class="jp">${furiganaHTML(head.segs)}</span>
-          <span class="romaji">${head.romaji}</span>
-          <span class="meaning">${v.meaning}</span>
-          <span class="badge">${v.group}</span>
-        </button>
-        ${v.note ? `<p class="word-group-note">${v.note}</p>` : ''}
-        <div class="word-forms">${rows}</div>
-      </div>`;
-    }).join('');
-
-    $('#other-words').innerHTML = OTHER_WORDS.map((w) => `
-      <button type="button" class="word-flat-item" data-speak="${w.kana}">
-        <span class="jp">${furiganaHTML(w.segs)}</span>
-        <span class="romaji">${w.romaji}</span>
-        <span class="meaning">${w.meaning}</span>
-        <span class="badge">${w.type}</span>
-      </button>`).join('');
-  }
-
-  [$('#verb-groups'), $('#other-words')].forEach((el) => {
-    el.addEventListener('click', (e) => {
-      const target = e.target.closest('[data-speak]');
-      if (target) speak(target.dataset.speak);
-    });
-  });
 
   function showWordsSubview(sub) {
-    $('#words-browse').hidden = sub !== 'browse';
-    $('#words-practice').hidden = sub !== 'practice';
+    ['mine', 'find', 'practice'].forEach((name) => { $('#words-' + name).hidden = sub !== name; });
     $$('#words-tab button').forEach((b) => b.classList.toggle('is-active', b.dataset.wordsView === sub));
+    if (sub === 'find') setTimeout(() => $('#jisho-query').focus({ preventScroll: true }), 0);
   }
 
   $('#words-tab').addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (btn) showWordsSubview(btn.dataset.wordsView);
   });
+  document.addEventListener('click', (e) => {
+    const go = e.target.closest('[data-words-goto]');
+    if (go) showWordsSubview(go.dataset.wordsGoto);
+  });
+
+  function badgesHTML(entry) {
+    return [
+      entry.jlpt ? `<span class="badge jlpt">${escapeHTML(entry.jlpt)}</span>` : '',
+      entry.classLabel ? `<span class="badge">${escapeHTML(entry.classLabel)}</span>` : '',
+    ].join('');
+  }
+
+  // ---- my words: the learner's list, newest first, with generated forms ----
+
+  function renderDeck() {
+    $('#deck-empty').hidden = state.deck.length > 0;
+    $('#deck-list').innerHTML = state.deck.slice().reverse().map((entry) => {
+      const forms = buildForms(entry);
+      const base = forms[0];
+      const rows = forms.slice(1).map((f) => `
+        <button type="button" class="word-form-row" data-speak="${escapeHTML(f.kana)}">
+          <span class="jp">${furiganaHTML(f.segs)}</span>
+          <span class="romaji">${escapeHTML(f.romaji)}</span>
+          <span class="label">${escapeHTML(f.label)}</span>
+          <span class="meaning">${escapeHTML(f.hint)}</span>
+        </button>`).join('');
+      return `<div class="word-group">
+        <div class="word-group-head">
+          <button type="button" class="word-head-main" data-speak="${escapeHTML(base.kana)}">
+            <span class="jp">${furiganaHTML(base.segs)}</span>
+            <span class="romaji">${escapeHTML(base.romaji)}</span>
+            <span class="meaning">${escapeHTML(entry.meanings.join(' · '))}</span>
+          </button>
+          ${badgesHTML(entry)}
+          <button type="button" class="remove" data-remove="${escapeHTML(entry.key)}" title="Remove from my words" aria-label="Remove">✕</button>
+        </div>
+        ${rows ? `<div class="word-forms">${rows}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  $('#deck-list').addEventListener('click', (e) => {
+    const remove = e.target.closest('[data-remove]');
+    if (remove) {
+      // Progress on its cards is kept, so re-adding the word later picks up where you were.
+      state.deck = state.deck.filter((entry) => entry.key !== remove.dataset.remove);
+      save();
+      renderDeck();
+      renderWordSummary();
+      renderResults();
+      return;
+    }
+    const target = e.target.closest('[data-speak]');
+    if (target) speak(target.dataset.speak);
+  });
+
+  // ---- find: talk to Jisho through the app's own server ----
+
+  let results = { title: '', items: [] };
+
+  function setJishoStatus(message, ok) {
+    const el = $('#jisho-status');
+    el.hidden = !message;
+    el.className = 'import-status ' + (ok ? 'ok' : 'bad');
+    el.textContent = message || '';
+  }
+
+  async function jishoSearch(keyword, page) {
+    if (location.protocol === 'file:') {
+      throw new Error('Looking up words needs the app running through its server: run "npm start" and open http://localhost:8080. ' +
+        '(Opened as a plain file, the browser isn\'t allowed to talk to Jisho.)');
+    }
+    let res;
+    try {
+      res = await fetch(`api/jisho?keyword=${encodeURIComponent(keyword)}&page=${page || 1}`);
+    } catch (err) {
+      throw new Error('Couldn\'t reach the app\'s server. Is "npm start" still running?');
+    }
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body) throw new Error((body && body.error) || `Word lookup failed (${res.status}).`);
+    return (body.data || []).map(normalizeJishoItem).filter(Boolean);
+  }
+
+  function renderResults() {
+    const { title, items } = results;
+    $('#result-actions').hidden = !items.length;
+    $('#result-title').textContent = title;
+    const fresh = items.filter((e) => !inDeck(e.key)).length;
+    $('#btn-add-all').disabled = !fresh;
+    $('#btn-add-all').textContent = fresh ? `Add all ${fresh} new` : 'All added';
+    $('#jisho-results').innerHTML = items.map((entry, i) => {
+      const base = buildForms(entry)[0];
+      const added = inDeck(entry.key);
+      return `<div class="result-item">
+        <div>
+          <span class="jp">${furiganaHTML(base.segs)}</span>
+          <span class="romaji">${escapeHTML(base.romaji)}</span>
+          <span class="badges">${badgesHTML(entry)}</span>
+          <p class="meaning">${escapeHTML(entry.meanings.join(' · '))}</p>
+        </div>
+        <button type="button" class="btn ${added ? '' : 'btn-primary'}" data-add="${i}" ${added ? 'disabled' : ''}>
+          ${added ? 'Added ✓' : '+ Add'}
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  function addEntries(entries) {
+    let n = 0;
+    entries.forEach((entry) => {
+      if (!inDeck(entry.key)) { state.deck.push(entry); n += 1; }
+    });
+    if (!n) return;
+    save();
+    renderResults();
+    renderDeck();
+    renderWordSummary();
+  }
+
+  $('#jisho-results').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-add]');
+    if (btn) addEntries([results.items[Number(btn.dataset.add)]]);
+  });
+  $('#btn-add-all').addEventListener('click', () => {
+    const fresh = results.items.filter((e) => !inDeck(e.key)).length;
+    addEntries(results.items);
+    setJishoStatus(`Added ${fresh} word${fresh === 1 ? '' : 's'} to your list.`, true);
+  });
+
+  async function runLookup(label, keyword, page) {
+    setJishoStatus('Asking Jisho…', true);
+    try {
+      const items = await jishoSearch(keyword, page);
+      results = { title: label(items.length), items };
+      renderResults();
+      setJishoStatus('', true);
+      return items;
+    } catch (err) {
+      setJishoStatus(err.message, false);
+      return null;
+    }
+  }
+
+  $('#jisho-search').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = $('#jisho-query').value.trim();
+    if (!q) return;
+    runLookup((n) => (n ? `${n} result${n === 1 ? '' : 's'} for "${q}"` : ''), q, 1).then((items) => {
+      if (items && !items.length) setJishoStatus(`Jisho found nothing for "${q}". Try another spelling, or English.`, false);
+    });
+  });
+
+  $('#jlpt-level').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.settings.jlptLevel = btn.dataset.v;
+    save();
+    renderWordSetup();
+  });
+
+  $('#btn-discover').addEventListener('click', async () => {
+    const level = state.settings.jlptLevel;
+    const page = state.discover[level] || 1;
+    const btn = $('#btn-discover');
+    btn.disabled = true;
+    const items = await runLookup(
+      (n) => `JLPT ${level}, batch ${page} — ${n} word${n === 1 ? '' : 's'}`,
+      `#jlpt-${level.toLowerCase()}`, page,
+    );
+    btn.disabled = false;
+    if (!items) return;
+    if (!items.length) {
+      setJishoStatus(`That's every ${level} word Jisho lists. Try the next level up.`, true);
+      return;
+    }
+    // Only advance once a batch actually arrived, so a failed request doesn't skip words.
+    state.discover[level] = page + 1;
+    save();
+  });
 
   // ---- practice setup ----
 
   function renderWordSetup() {
-    const verbChips = VERBS.map((v) => {
-      const on = state.settings.wordGroups.includes(v.id);
-      return `<button class="chip ${on ? 'on' : ''}" data-word-group="${v.id}">${v.forms.dictionary.romaji}</button>`;
-    }).join('');
-    const otherOn = state.settings.wordGroups.includes('other');
-    $('#word-opt-groups').innerHTML = verbChips +
-      `<button class="chip ${otherOn ? 'on' : ''}" data-word-group="other">nouns &amp; adjectives</button>`;
+    $$('#word-opt-types .chip').forEach((chip) =>
+      chip.classList.toggle('on', state.settings.wordTypes.includes(chip.dataset.wordType)));
+    $('#word-opt-base-only').checked = state.settings.wordBaseOnly;
     $$('#word-opt-length button').forEach((b) =>
       b.classList.toggle('is-active', b.dataset.v === String(state.settings.wordLength)));
+    $$('#jlpt-level button').forEach((b) => b.classList.toggle('is-active', b.dataset.v === state.settings.jlptLevel));
   }
 
-  $('#word-opt-groups').addEventListener('click', (e) => {
+  $('#word-opt-types').addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
-    const id = chip.dataset.wordGroup;
-    const picked = new Set(state.settings.wordGroups);
-    picked.has(id) ? picked.delete(id) : picked.add(id);
-    state.settings.wordGroups = Array.from(picked);
+    const picked = new Set(state.settings.wordTypes);
+    picked.has(chip.dataset.wordType) ? picked.delete(chip.dataset.wordType) : picked.add(chip.dataset.wordType);
+    state.settings.wordTypes = Array.from(picked);
     save();
     renderWordSetup();
+  });
+
+  $('#word-opt-base-only').addEventListener('change', (e) => {
+    state.settings.wordBaseOnly = e.target.checked;
+    save();
   });
 
   $('#word-opt-length').addEventListener('click', (e) => {
@@ -943,21 +1079,10 @@
     renderWordSetup();
   });
 
-  $('#word-chip-actions').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-word-select]');
-    if (!btn) return;
-    const all = wordGroupIds();
-    if (btn.dataset.wordSelect === 'all') state.settings.wordGroups = all;
-    if (btn.dataset.wordSelect === 'none') state.settings.wordGroups = [];
-    if (btn.dataset.wordSelect === 'weak') {
-      state.settings.wordGroups = all.filter((id) => {
-        const m = wordGroupMastery(id);
-        return m > 0 && m < 0.8;
-      });
-    }
-    save();
-    renderWordSetup();
-  });
+  function selectedWordPool() {
+    return allWordCards().filter((c) =>
+      state.settings.wordTypes.includes(c.type) && (!state.settings.wordBaseOnly || c.isBase));
+  }
 
   // ---- practice: flashcard only, same flip mechanic and SRS engine as kana ----
 
@@ -966,6 +1091,9 @@
   function startWordSession() {
     const pool = selectedWordPool();
     if (!pool.length) {
+      $('#word-setup-warn').textContent = state.deck.length
+        ? 'Nothing matches those filters — tick at least one kind of word.'
+        : 'Your list is empty. Add some words in "Find words" first.';
       $('#word-setup-warn').hidden = false;
       return;
     }
@@ -1018,21 +1146,16 @@
     $('#word-btn-flash-no').disabled = false;
     $('#word-btn-flash-yes').disabled = false;
 
-    $('#word-flash-label').textContent =
-      card.type === 'verb' ? card.label : card.type === 'noun' ? 'noun' : 'adjective';
+    $('#word-flash-label').textContent = card.label;
     $('#word-flash-front').innerHTML = furiganaHTML(card.segs);
 
-    if (card.type === 'verb') {
-      const base = VERBS.find((v) => v.id === card.baseWord);
-      $('#word-flash-base').textContent = `from ${base.forms.dictionary.romaji} — "${card.baseMeaning}"`;
-      $('#word-flash-base').hidden = false;
-    } else {
-      $('#word-flash-base').hidden = true;
-    }
+    // A conjugated form points back to the word it came from.
+    $('#word-flash-base').innerHTML = card.isBase ? '' : `form of ${furiganaHTML(card.baseSegs)} (${escapeHTML(card.baseRomaji)})`;
+    $('#word-flash-base').hidden = card.isBase;
     $('#word-flash-romaji').textContent = card.romaji;
     $('#word-flash-meaning').textContent = card.meaning;
-    $('#word-flash-grammar-note').textContent = card.note || '';
-    $('#word-flash-grammar-note').hidden = !card.note;
+    $('#word-flash-grammar-note').textContent = card.hint ? `${card.label}: ${card.hint}` : '';
+    $('#word-flash-grammar-note').hidden = !card.hint;
 
     el.focus({ preventScroll: true });
   }
@@ -1112,7 +1235,7 @@
     $('#word-setup').hidden = false;
     renderWordSetup();
   });
-  $('#word-btn-browse').addEventListener('click', () => showWordsSubview('browse'));
+  $('#word-btn-browse').addEventListener('click', () => showWordsSubview('mine'));
 
   // Space/Enter flips the focused card; arrow keys (or 1/2) grade it once flipped.
   document.addEventListener('keydown', (e) => {

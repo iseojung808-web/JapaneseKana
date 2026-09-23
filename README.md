@@ -1,8 +1,9 @@
 # かなトレ — Kana Trainer
 
-A spaced-repetition trainer for the two Japanese syllabaries, built for someone
-who has never seen a Japanese character before. Open `index.html` and start.
-No build step, no dependencies, no account.
+A spaced-repetition trainer for the two Japanese syllabaries, plus vocabulary
+from Jisho with conjugations and furigana. Built for someone who has never seen
+a Japanese character before. Run `npm start`. There's no build step, no
+dependencies and no account.
 
 ![all 104 characters with a mastery heat map, a quiz, and progress stats](https://img.shields.io/badge/kana-104-c2413a) ![no dependencies](https://img.shields.io/badge/dependencies-0-2e7d5b)
 
@@ -53,19 +54,32 @@ quit. Sessions mix cards that are due with new ones, weakest first.
 **Progress** — accuracy, day streak, the characters that keep tripping you up,
 and a seven-day forecast of your review load.
 
-**Words** — kana gets you reading; this gets you recognizing actual vocabulary,
-including the part that trips people up hardest: verbs conjugate. 見る (miru),
-見てる (miteru), and 見てね (mitene) aren't three unrelated words — they're the
-dictionary form, a casual "is watching," and a casual "watch it, okay?" of the
-*same* verb. **Browse** lists 15 common verbs across all three groups
-(ichidan, godan, and the two genuinely irregular verbs, する and 来る) with all
-seven forms each — dictionary, polite, te-form, the two casual te-form
-contractions, negative, and past — plus 18 everyday nouns and adjectives.
-Every kanji is annotated with furigana, always, via real `<ruby>` markup, not
-a rendered image or an inline romaji crutch. **Practice** is a flashcard
-session over whichever verbs you pick, self-graded exactly like the kana
-flashcard mode, and backed by the same spaced-repetition scheduler — 123 word
-cards, tracked independently from your kana progress.
+**Words** — vocabulary from [Jisho.org](https://jisho.org), so the list never
+runs out. **Find words** has two ways in: *Discover* pulls the next batch of
+words for a JLPT level (N5 through N1) and remembers where you stopped, so each
+click brings words you haven't seen; *Look up* searches Jisho for anything —
+English, kana, kanji or romaji. Add what you want to **My words**.
+
+Verbs and adjectives arrive with their conjugations worked out: 見る (miru),
+見てる (miteru) and 見てね (mitene) are one verb, not three words. The forms are
+generated from the word class Jisho reports ("Ichidan verb", "Godan verb with
+'mu' ending", …), so it works for any verb you add. Verbs get seven forms:
+dictionary, polite, te-form, the casual ~teru and ~tene, negative and past.
+Irregulars are handled: 行く (itte), 来る (kuru / kimasu / konai), する, ある (nai),
+and suru-nouns like 勉強 (勉強する). i-adjectives get ~kunai / ~katta / ~kute /
+~ku (いい becomes よくない), and na-adjectives get ~na / ~da / ~janai / ~datta /
+~ni. A word the app can't conjugate with confidence stays a single card rather
+than getting a wrong guess. Every kanji carries furigana, lined up over the
+right characters, as real `<ruby>` markup.
+
+**Practice** turns your list into flashcards, with one card per form. Filter by
+verbs, adjectives or other words, or stick to dictionary forms. They use the
+same spaced-repetition scheduler as kana, but a separate progress record.
+
+Word lookup needs the app served by `npm start`. Jisho doesn't allow browser
+pages to call it directly, so the app's own server forwards the request. Words
+you've already added work offline. Dictionary data is from JMdict by the
+[EDRDG](https://www.edrdg.org/) (CC BY-SA 4.0), via Jisho.
 
 **Backup** — progress lives only in the browser you're using (see below), which
 is a problem in anything temporary: a Codespace, a shared machine, a browser
@@ -96,9 +110,9 @@ session daily until the forecast chart runs dry.
 ## Running it
 
 ```bash
-open index.html          # that's genuinely it
-npm start                # or serve it at http://localhost:8080
-npm test                 # 26 unit tests over the data and the scheduler
+npm start                # http://localhost:8080 — needed for Words lookup
+open index.html          # kana practice also works straight from the file
+npm test                 # 44 tests: kana data, scheduler, conjugation, server
 ```
 
 Audio uses the browser's built-in speech synthesis. If your system has no
@@ -108,16 +122,21 @@ Japanese voice installed, the app stays silent and everything else works.
 
 ```
 index.html               markup for all five views
+server.js                static files + the /api/jisho proxy (no dependencies)
 css/styles.css           one stylesheet, light and dark, mobile down to 320px
 js/kana-data.js          the 104 kana, lessons, mnemonics, vocabulary
-js/word-data.js          15 verbs (7 forms each) + 18 nouns/adjectives, furigana included
+js/word-data.js          Jisho parsing, furigana alignment, conjugation engine
 js/srs.js                the scheduler — pure functions, no DOM
 js/app.js                views, quiz logic, persistence
-test/kana.test.js        unit tests for the kana data and scheduler
-test/word-data.test.js   unit tests for the word data and conjugation rules
+test/kana.test.js        kana data and scheduler
+test/word-data.test.js   conjugation and furigana, checked against hand-verified forms
+test/server.test.js      proxy behaviour and path-traversal protection
+test/fixtures/jisho.js   sample Jisho API responses
 ```
 
-Progress is stored in `localStorage` under `kana-trainer/v1`. It never leaves
-your browser, which also means clearing site data resets you to zero.
+Progress and your word list are stored in `localStorage` under
+`kana-trainer/v1`. Search terms go to Jisho through the proxy; nothing else
+leaves your browser. Clearing site data resets you to zero, so export a backup
+first.
 
 がんばって！
